@@ -1,0 +1,9 @@
+/runs/*
+/test_res
+/output
+/logs
+/checkpoints*
+*.pyc
+*.png
+*.pth
+*.pth.tar
