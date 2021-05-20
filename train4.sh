@@ -3,7 +3,7 @@ python main.py --dataset shanghaitechpa \
 --train-files /data/CrowdCount/train.txt \
 --val-files /data/CrowdCount/val.txt \
 --gpu-devices 4 \
---lr 5e-5 \
+--lr 3e-5 \
 --optim adam \
 --loss mseloss \
 --checkpoints ./checkpoints/demo \

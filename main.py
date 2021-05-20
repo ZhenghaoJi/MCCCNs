@@ -17,9 +17,9 @@ from tensorboardX import SummaryWriter  # optional
 from optimizers.optimizers import init_optim
 
 from models.MCCCNs import MCCCN
-
+from models.CSRNet import CSRNet
 from datasets.shanghaitechparta_dataloader import get_train_shanghaitechpartA_dataloader, get_test_shanghaitechpartA_dataloader
-
+from utils.vis import visualization
 # from loss.MixLoss import MixLoss
 # from pytorch_ssim import SSIM
 
@@ -35,7 +35,7 @@ parser.add_argument('--val-files', type=str)
 parser.add_argument('--resume', type=str, default='')
 parser.add_argument('--use-avai-gpus', action='store_true')
 parser.add_argument('--gpu-devices', type=str, default='0')
-
+parser.add_argument('--vis', type=int, default=False)
 parser.add_argument('--max-epoch', type=int, default=2000)
 parser.add_argument('--optim', type=str, default='sgd')
 parser.add_argument('--lr', type=float, default=5e-04)
@@ -45,6 +45,8 @@ parser.add_argument('--val-batch', type=int, default=5)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--loss', type=str, default='mseloss') # mseloss, mixloss, ssimloss
 
+
+parser.add_argument('--vis_root', type=str, default='./vis')
 parser.add_argument('--checkpoints', type=str, default='./checkpoints')
 parser.add_argument('--summary-writer', type=str, default='./runs')
 parser.add_argument('--save-txt', type=str, default='./logs')
@@ -62,7 +64,10 @@ def mkdir_if_missing(directory):
 
 
 def main():
+    cur_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
     mkdir_if_missing(args.checkpoints)
+    mkdir_if_missing(os.path.join(args.checkpoints,cur_time))
+    mkdir_if_missing(os.path.join(args.vis_root,cur_time))    
     mkdir_if_missing(args.summary_writer)
     print("dataset: ", args.dataset)
     print("model name: ", args.model)
@@ -87,6 +92,8 @@ def main():
         print("Currently using CPU (GPU is highly recommended)")
 
     if args.model == 'CSRNet':
+        model = CSRNet()
+    elif args.model == 'MCCCN':
         model = MCCCN()
     elif args.model == 'ResNet':
         model = ResNetbackboneModel()
@@ -96,8 +103,8 @@ def main():
         model = HRNetbackboneModel()
     elif args.model == 'PSCNet':
         model = PSCNet()
-    elif args.model == 'SPN':
-        pass
+  
+
 
     print("Currently using {} model".format(args.model))
 
@@ -105,7 +112,7 @@ def main():
         model = nn.DataParallel(model).cuda()
 
     start_epoch = 0
-    if not args.resume == '':
+    if args.resume:
         if os.path.isfile(args.resume):
             pkl = torch.load(args.resume)
             state_dict = pkl['state_dict']
@@ -137,10 +144,11 @@ def main():
 
     min_mae = sys.maxsize
     min_mae_epoch = -1
-    cur_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
+
     
     writer = SummaryWriter(args.summary_writer)
     logdir=args.save_txt+'/'+args.model+'_'+cur_time+'.txt'
+    vis_root=os.path.join(args.vis_root,cur_time)
     with open(logdir, 'w') as f:
         for epoch in range(start_epoch, start_epoch + args.max_epoch):
             model.train()
@@ -156,7 +164,9 @@ def main():
                 # else:
                 #     et_densitymap = model(label_image)
                 et_densitymap = model(label_image)
-
+                if args.vis and i%10==0 :
+                    visualization(vis_root,label_data['imagepath'][0],label_image[0],gt_densitymap[0],et_densitymap[0])
+                
 
                 if args.loss == 'mseloss':
                     loss = total_criterion(et_densitymap, gt_densitymap)
@@ -201,7 +211,7 @@ def main():
                     torch.save({
                         'state_dict': model.state_dict(),
                         'epoch': epoch
-                    }, os.path.join(args.checkpoints, "bestvalmodel.pth"))
+                    }, os.path.join(args.checkpoints,cur_time,"best_val_model.pth"))
 
                 # if epoch % 50 == 0:
                 #     torch.save({

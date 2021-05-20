@@ -2,9 +2,9 @@ python main.py --dataset shanghaitechpa \
 --model MCCCN \
 --train-files /data/CrowdCount/train.txt \
 --val-files /data/CrowdCount/val.txt \
---gpu-devices 4 \
---lr 5e-5 \
---optim adam \
+--gpu-devices 0 \
+--lr 1e-6 \
+--optim sgd \
 --loss mseloss \
 --checkpoints ./checkpoints/demo \
 --summary-writer ./runs/demo \

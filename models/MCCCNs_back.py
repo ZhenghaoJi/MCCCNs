@@ -8,73 +8,6 @@ from . import resnet
 import random
 from operator import add
 from functools import reduce
-class Conv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, \
-                stride=1, NL='relu', same_padding=False, bn=False, dilation=1):
-        super(Conv2d, self).__init__()
-        padding = int((kernel_size - 1) // 2) if same_padding else 0
-        self.conv = []
-        if dilation==1:
-            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=padding, dilation=dilation)
-        else:
-            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=dilation, dilation=dilation)
-        self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0, affine=True) if bn else nn.Identity()
-        if NL == 'relu' :
-            self.relu = nn.ReLU(inplace=True)
-        elif NL == 'prelu':
-            self.relu = nn.PReLU()
-        else:
-            self.relu = None
-
-    def forward(self, x):
-        x = self.conv(x)
-        if self.bn is not None:
-            x = self.bn(x)
-        if self.relu is not None:
-            x = self.relu(x)
-        return x
-class MultiBranchModule(nn.Module):
-    def __init__(self, in_channels, sync=False):
-        super(MultiBranchModule, self).__init__()
-        self.branch1x1 = BasicConv2d(in_channels, in_channels//2, kernel_size=1, sync=sync)
-        self.branch1x1_1 = BasicConv2d(in_channels//2, in_channels, kernel_size=1, sync=sync)
-
-        self.branch3x3_1 = BasicConv2d(in_channels, in_channels//2, kernel_size=1, sync=sync)
-        self.branch3x3_2 = BasicConv2d(in_channels // 2, in_channels, kernel_size=(3, 3), padding=(1, 1), sync=sync)
-
-        self.branch3x3dbl_1 = BasicConv2d(in_channels, in_channels//2, kernel_size=1, sync=sync)
-        self.branch3x3dbl_2 = BasicConv2d(in_channels // 2, in_channels, kernel_size=5, padding=2, sync=sync)
-
-    def forward(self, x):
-        branch1x1 = self.branch1x1(x)
-        branch1x1 = self.branch1x1_1(branch1x1)
-
-        branch3x3 = self.branch3x3_1(x)
-        branch3x3 = self.branch3x3_2(branch3x3)
-
-        branch3x3dbl = self.branch3x3dbl_1(x)
-        branch3x3dbl = self.branch3x3dbl_2(branch3x3dbl)
-
-        outputs = [branch1x1, branch3x3, branch3x3dbl, x]
-        return torch.cat(outputs, 1)
-
-# the module definition for the basic conv module
-class BasicConv2d(nn.Module):
-
-    def __init__(self, in_channels, out_channels, sync=False, **kwargs):
-        super(BasicConv2d, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, **kwargs)
-        if sync:
-            # for sync bn
-            print('use sync inception')
-            self.bn = nn.SyncBatchNorm(out_channels, eps=0.001)
-        else:
-            self.bn = nn.BatchNorm2d(out_channels, eps=0.001)
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        return F.relu(x, inplace=True)
 class MSBlock(nn.Module):
     def __init__(self, c_in, rate=4):
         super(MSBlock, self).__init__()          
@@ -209,50 +142,49 @@ class MCCCN(nn.Module):
         self.conv1_scale = nn.Conv2d(out*32*2, 32*out, (3, 3), stride=1, padding=1)
         self.conv0_scale = nn.Conv2d(out*32, 1, (1, 1))
         
-        self.density_head5 = nn.Sequential(
-            MultiBranchModule(32),
-            Conv2d(128, 1, 1, same_padding=True)
-        )
-
         self.density_head4 = nn.Sequential(
-            MultiBranchModule(32),
-            Conv2d(128, 1, 1, same_padding=True)
+            MSBlock(32, rate),
+            nn.Conv2d(out*32, 1, (1, 1))
         )
 
         self.density_head3 = nn.Sequential(
-            MultiBranchModule(32),
-            Conv2d(128, 1, 1, same_padding=True)
+            MSBlock(32, rate),
+            nn.Conv2d(out*32, 1, (1, 1))
         )
 
         self.density_head2 = nn.Sequential(
-            MultiBranchModule(32),
-            Conv2d(128, 1, 1, same_padding=True)
+            MSBlock(32, rate),
+            nn.Conv2d(out*32, 1, (1, 1))
         )
 
         self.density_head1 = nn.Sequential(
-            MultiBranchModule(32),
-            Conv2d(128, 1, 1, same_padding=True)
+            MSBlock(32, rate),
+            nn.Conv2d(out*32, 1, (1, 1))
         )
         
         self.confidence_head4 = nn.Sequential(
-            Conv2d(32, 16, 1, same_padding=True, NL='relu'),
-            Conv2d(16, 1, 1, same_padding=True, NL=None)
+            nn.Conv2d(32*t, 32*t, 3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.Conv2d(32 * t, 1, (1, 1), stride=1)
         )
 
         self.confidence_head3 = nn.Sequential(
-            Conv2d(32, 16, 1, same_padding=True, NL='relu'),
-            Conv2d(16, 1, 1, same_padding=True, NL=None)
+            nn.Conv2d(32*t, 32*t, 3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.Conv2d(32 * t, 1, (1, 1), stride=1)
         )
 
         self.confidence_head2 = nn.Sequential(
-            Conv2d(32, 16, 1, same_padding=True, NL='relu'),
-            Conv2d(16, 1, 1, same_padding=True, NL=None)
+            nn.Conv2d(32*t, 32*t, 3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.Conv2d(32 * t, 1, (1, 1), stride=1)
         )
 
         self.confidence_head1 = nn.Sequential(
-            Conv2d(32, 16, 1, same_padding=True, NL='relu'),
-            Conv2d(16, 1, 1, same_padding=True, NL=None)
-        ) 
+            nn.Conv2d(32*t, 32*t, 3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.Conv2d(32 * t, 1, (1, 1), stride=1)
+        )       
 
     def getVGGFeature_List(self, img, device='cuda:0'):
         return self.backbone(img)
@@ -433,10 +365,9 @@ class MCCCN(nn.Module):
         density_map = torch.cat([x4_density, x3_density, x2_density, x1_density], 1)
         # soft selection
         density_map *= confidence_map
-        density = torch.sum(density_map, 1, keepdim=True)
-        return density
+        #density = torch.sum(density_map, 1, keepdim=True)
         #print(density_map[:,0,:,:].shape)
-        #return density_map[:,1,:,:].unsqueeze(1)     
+        return density_map[:,1,:,:].unsqueeze(1)     
         
 
 if __name__ == '__main__':

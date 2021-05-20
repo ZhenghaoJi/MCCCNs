@@ -2,8 +2,10 @@
 /test_res
 /output
 /logs
-/checkpoints*
+/checkpoints/*
+/vis/*
 *.pyc
 *.png
+*.jpg
 *.pth
 *.pth.tar
