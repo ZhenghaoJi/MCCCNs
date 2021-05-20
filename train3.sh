@@ -1,9 +1,9 @@
 python main.py --dataset shanghaitechpa \
---model MCCCN \
+--model MCCCN_vgg \
 --train-files /data/CrowdCount/train.txt \
 --val-files /data/CrowdCount/val.txt \
---gpu-devices 4 \
---lr 1e-5 \
+--gpu-devices 5 \
+--lr 1e-4 \
 --optim adam \
 --loss mseloss \
 --checkpoints ./checkpoints/demo \

@@ -17,6 +17,7 @@ from tensorboardX import SummaryWriter  # optional
 from optimizers.optimizers import init_optim
 
 from models.MCCCNs import MCCCN
+from models.MCCCNs_vgg import MCCCN_vgg
 from models.CSRNet import CSRNet
 from datasets.shanghaitechparta_dataloader import get_train_shanghaitechpartA_dataloader, get_test_shanghaitechpartA_dataloader
 from utils.vis import visualization
@@ -97,8 +98,8 @@ def main():
         model = MCCCN()
     elif args.model == 'ResNet':
         model = ResNetbackboneModel()
-    elif args.model == 'VGGNet':
-        model = VGGbackboneModel()
+    elif args.model == 'MCCCN_vgg':
+        model = MCCCN_vgg()
     elif args.model == 'HRNet':
         model = HRNetbackboneModel()
     elif args.model == 'PSCNet':
